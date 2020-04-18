@@ -17,6 +17,8 @@ public class RpgPlayer {
 
     private List<Item> inventory;
 
+    private ItemsFacade itemsFacade;
+
     // How much the player can carry in pounds
     private int carryingCapacity;
 
@@ -24,6 +26,7 @@ public class RpgPlayer {
         this.gameEngine = gameEngine;
         inventory = new ArrayList<Item>();
         carryingCapacity = MAX_CARRYING_CAPACITY;
+        itemsFacade = new ItemsFacade();
     }
 
     public void useItem(Item item) {
@@ -38,11 +41,11 @@ public class RpgPlayer {
     }
 
     public boolean pickUpItem(Item item) {
-        int weight = calculateInventoryWeight();
+        int weight = itemsFacade.calculateInventoryWeight(inventory);
         if (weight + item.getWeight() > carryingCapacity)
             return false;
 
-        if (item.isUnique() && checkIfItemExistsInInventory(item))
+        if (item.isUnique() && itemsFacade.checkIfItemExistsInInventory(item, inventory))
             return false;
 
         // Don't pick up items that give health, just consume them.
@@ -62,43 +65,31 @@ public class RpgPlayer {
         if (item.isRare())
             gameEngine.playSpecialEffect("cool_swirly_particles");
 
+        //Feature: Super rare items look more awesome
+        if(item.isRare() && item.isUnique()){
+            gameEngine.playSpecialEffect("blue_swirly");
+        }
+
         inventory.add(item);
 
-        calculateStats();
+        itemsFacade.calculateStats(inventory, armour);
 
         return true;
     }
 
-    private void calculateStats() {
-        for (Item i: inventory) {
-            armour += i.getArmour();
-        }
-    }
 
-    private boolean checkIfItemExistsInInventory(Item item) {
-        for (Item i: inventory) {
-            if (i.getId() == item.getId())
-                return true;
-        }
-        return false;
-    }
-
-    private int calculateInventoryWeight() {
-        int sum=0;
-        for (Item i: inventory) {
-            sum += i.getWeight();
-        }
-        return sum;
-    }
 
     public void takeDamage(int damage) {
+
         if (damage < armour) {
             gameEngine.playSpecialEffect("parry");
         }
-
         int damageToDeal = damage - armour;
+        //Feature: Un-encumbered players can parry more successfully
+        if(itemsFacade.calculateInventoryWeight(inventory) < (carryingCapacity / 2)){
+            damageToDeal = (damageToDeal * 75)/100;
+        }
         health -= damageToDeal;
-
         gameEngine.playSpecialEffect("lots_of_gore");
     }
 
